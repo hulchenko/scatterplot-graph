@@ -4,10 +4,12 @@ fetch(
 )
   .then((response) => response.json())
   .then((response) => {
-    createChart(response.map((d) => [setTime(d.Time), d.Year]));
+    createChart(
+      response.map((d) => [convertTime(d.Time), d.Year, d.Doping, d.Name]) //pulling all of the necessary info
+    );
 
-    function setTime(str) {
-      return new Date(`2020 01 01 00:${str}`);
+    function convertTime(str) {
+      return new Date(`1970 01 01 00:${str}`);
     }
   });
 
@@ -17,6 +19,7 @@ function createChart(data) {
   const w = 1000;
   const h = 500;
   const padding = 60;
+  const radius = 10;
 
   //set svg var
   const svg = d3
@@ -32,8 +35,43 @@ function createChart(data) {
 
   const xScale = d3
     .scaleTime()
-    .domain([d3.min(data, (d) => d[1]), d3.max(data, (d) => d[1])])
+    .domain([
+      d3.min(data, (d) => new Date(d[1] - 1)), //"-1 and +1" to shift circles right by 1 year, for better visual
+      d3.max(data, (d) => new Date(d[1] + 1)),
+    ])
     .range([padding, w - padding]);
+
+  //final step, svg/elements create:
+  svg
+    .selectAll('circle')
+    .data(data)
+    .enter()
+    .append('circle')
+    .attr('class', 'dot')
+    .attr('data-xvalue', (d) => d[1])
+    .attr('data-yvalue', (d) => d[0])
+    .attr('cx', (d) => xScale(d[1]))
+    .attr('cy', (d) => yScale(d[0]))
+    .attr('r', radius)
+    .on('mouseover', (d, i) => {
+      tooltip.setAttribute('data-year', d[1]);
+      tooltip.innerHTML = `
+      <b>
+      Name: ${d[3]}<br>
+      Time: ${d[0].getMinutes()}:${d[0].getSeconds()}<br>
+      </b>
+      <small>Info: ${d[2] ? d[2] : 'No doping allegations'}<small>
+   `;
+    })
+    .on('mouseout', () => {
+      tooltip.innerHTML = `
+      <b>
+      Name: <br />
+      Time: <br />
+      </b>
+      <small>Info:</small>
+    `;
+    });
 
   //d3 formatting
   const timeFormat = d3.timeFormat('%M:%S');
